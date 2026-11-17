@@ -1,35 +1,52 @@
-name: Build Android APK
+herename: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Find and Grant Permission for Gradle
+      - name: Build Web Assets
         run: |
-          find . -name "gradlew" -exec chmod +x {} +
+          if npm run | grep -q "build"; then
+            npm run build
+          fi
+
+      - name: Initialize Capacitor Android (if missing)
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
 
       - name: Build Debug APK with Gradle
         run: |
-          GRADLEW_PATH=$(find . -name "gradlew" -print -quit)
-          DIR_PATH=$(dirname "$GRADLEW_PATH")
-          cd "$DIR_PATH"
+          cd android
+          chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: '**/build/outputs/apk/debug/*.apk'
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
